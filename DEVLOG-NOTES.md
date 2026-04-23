@@ -11,6 +11,52 @@ Raw build notes for the content-engine project, structured for a devlog-generati
 
 ---
 
+## 2026-04-23 — Day 2: Reddit scraper + DB layer
+
+### What got built
+
+- **`db/database.py`** — `init_db()`, `insert_post()`, `get_posts()`. Raw `sqlite3`, ~50 lines total. `sqlite3.Row` factory so results come back dict-shaped. `INSERT OR IGNORE` against the `UNIQUE(source, external_id)` constraint for silent dedup.
+- **`scrapers/reddit.py`** — `fetch_top_posts(subreddit, limit=25, time_filter="day")` returning `list[dict]` pre-shaped to the `raw_posts` schema. PRAW read-only, creds from env.
+- **`scrape` command wired in `main.py`** — calls `init_db()` first, then dispatches per `--source`. Late-binds imports inside the command body so the per-source client only loads when needed. Prints `scraped N, M new rows` so dedup behavior is visible.
+- **DB auto-initializes on first scrape** — `content.db` (24 KB) appears at repo root, all three tables present, schema matches validation from Day 1.
+- **Verified** — `python main.py scrape --source all --limit 5` runs cleanly without Reddit creds (gracefully skips reddit, echoes stubs for youtube/tiktok, initializes the DB).
+
+### Decisions made (and why)
+
+- **Raw `sqlite3`, not `sqlite-utils`.** `sqlite-utils` is installed and fine, but the whole DB module fits in ~50 lines of stdlib `sqlite3`. One less abstraction to learn, queries read like SQL. Rejected: reaching for the convenience library when the need hasn't arrived.
+
+- **`INSERT OR IGNORE` for dedup.** `UNIQUE(source, external_id)` in the schema plus `INSERT OR IGNORE` gives silent dedup in one round-trip. Rejected: SELECT-then-INSERT (race condition, two queries), an ORM's `get_or_create` (adds a dependency for something SQL already does).
+
+- **Late-binding scraper imports inside the command.** `from scrapers.reddit import fetch_top_posts` lives inside the `scrape` command body, not at module top. So `python main.py --help` and other subcommands don't pay the PRAW import cost, and a broken scraper doesn't take down the whole CLI. Rejected: top-of-module imports (cleaner-looking, but couples unrelated subcommands).
+
+- **`time_filter="day"` as the Reddit default.** Trend analysis cares about recent + popular, not all-time. "day" surfaces what's moving now; "all" surfaces the subreddit's greatest hits. Day wins for this pipeline; can be overridden per call.
+
+- **`--source reddit` without `--subreddit` is an error; `--source all` without `--subreddit` is a skip.** Explicit intent to scrape Reddit with no target is user error (fail loud). "Scrape everything" is best-effort (skip what's unconfigured, echo what happened). Same missing input, two meanings, and the CLI says which branch fired.
+
+### What's intentionally not built yet
+
+- YouTube scraper (scheduled for Days 4–5).
+- TikTok / Apify integration (Days 5–7).
+- `query` command wire-up — currently a stub (Day 3).
+- README — deferred to Day 3.
+- End-to-end verification run with real Reddit data — blocked on creds.
+
+### Blockers for next session
+
+- **Reddit API credentials.** reddit.com/prefs/apps → "create app" → script type → redirect URI `http://localhost`. Paste `client ID` and `secret` into `.env`. Day 3 opens with `python main.py scrape --source reddit --subreddit gamedev --limit 25` and confirming rows land.
+
+### Hooks for the post
+
+Pick one. Not all.
+
+- **"`INSERT OR IGNORE` is a dedup strategy"** — how a schema constraint plus one SQL keyword replaces a fetch-check-insert loop. Short, specific, useful to anyone writing a scraper.
+- **"Writing the scraper before I have the API keys"** — code I can't live-test yet, and why that's the right order. Confidence in the shape comes from type hints and import tests, not live data.
+- **"Late-binding imports in a Click CLI"** — why `from scrapers.reddit import …` lives inside the command function, not at module top. Keeps `--help` cheap and lets subcommands fail independently.
+- **"Two meanings for the same missing flag"** — `--source reddit` without `--subreddit` errors; `--source all` without `--subreddit` skips. When intent changes the error-handling contract.
+- **"SQLite is the default until it isn't"** — why a 50-line stdlib DB layer is the right answer for a solo content pipeline, and what would make me reach for Postgres (spoiler: not yet).
+
+---
+
 ## 2026-04-23 — Day 1: project scaffold
 
 ### What got built

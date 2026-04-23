@@ -15,7 +15,26 @@ def cli():
 @click.option("--limit", default=25, type=int)
 def scrape(source, subreddit, limit):
     """Pull trending content from a source into the DB."""
-    click.echo(f"scrape: source={source} subreddit={subreddit} limit={limit} (not implemented)")
+    from db.database import init_db, insert_post
+
+    init_db()
+
+    if source in ("reddit", "all"):
+        if not subreddit:
+            if source == "reddit":
+                raise click.ClickException("--subreddit is required for reddit source")
+            click.echo("reddit: skipped (no --subreddit given)")
+        else:
+            from scrapers.reddit import fetch_top_posts
+            posts = fetch_top_posts(subreddit, limit=limit)
+            inserted = sum(1 for p in posts if insert_post(p))
+            click.echo(f"reddit: scraped {len(posts)} from r/{subreddit}, {inserted} new rows")
+
+    if source in ("youtube", "all"):
+        click.echo("youtube: not implemented yet")
+
+    if source in ("tiktok", "all"):
+        click.echo("tiktok: not implemented yet")
 
 
 @cli.command()
