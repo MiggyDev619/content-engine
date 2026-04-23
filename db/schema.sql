@@ -23,7 +23,10 @@ CREATE TABLE IF NOT EXISTS patterns (
     content_formats    TEXT,
     keywords           TEXT,
     engagement_signals TEXT,
-    avoid              TEXT
+    avoid              TEXT,
+    model_used         TEXT,
+    input_tokens       INTEGER,
+    output_tokens      INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS generated_content (
@@ -38,5 +41,8 @@ CREATE TABLE IF NOT EXISTS generated_content (
     formatted     TEXT,
     status        TEXT DEFAULT 'draft',
     generated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    posted_at     TIMESTAMP
+    posted_at     TIMESTAMP,
+    model_used    TEXT,
+    input_tokens  INTEGER,
+    output_tokens INTEGER
 );
