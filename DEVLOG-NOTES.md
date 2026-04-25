@@ -11,6 +11,51 @@ Raw build notes for the content-engine project, structured for a devlog-generati
 
 ---
 
+## 2026-04-25 — Day 4: YouTube scraper, query command, README, master→main
+
+### What got built
+
+- **`scrapers/youtube.py`** — `fetch_trending_videos(query, max_results)` using YouTube Data API v3. Two-call: `search.list` to find videos by query, `videos.list` (batched by id) to pull engagement stats. Returns dicts shaped to match `raw_posts`. Quota cost per scrape: 101 units against 10k daily.
+- **`main.py` updates** — `scrape` command got a `--query` flag and a wired YouTube branch alongside Reddit. `query` command rewired to call `db.database.get_posts` and print formatted `[score] title` + url lines.
+- **`README.md`** — public-facing setup + credentials table + usage examples + project-state checklist. Distinct from `CLAUDE.md` (internal context).
+- **`master` → `main` migration** — local rename, remote `main` pushed and default flipped on GitHub, remote `master` deleted. Repo is now `https://github.com/MiggyDev619/content-engine` (public) on `main`.
+- **Verified end-to-end** — `query --top 5 --source reddit` returned five real rows from yesterday's r/gamedev scrape. `scrape --source youtube` without `--query` errors cleanly. `scrape --source all` without flags skips both real sources gracefully. YouTube live-fetch deferred until `YOUTUBE_API_KEY` is set.
+
+### Decisions made (and why)
+
+- **Two-call YouTube fetch (`search.list` + `videos.list`).** `search.list` returns titles, descriptions, channel — but no view/like/comment counts. Trend analysis needs engagement signal, so a second batched call to `videos.list` is required. 100 + 1 = 101 quota units per scrape against a 10k daily quota — comfortable headroom. Rejected: dropping engagement stats (kills the trend signal we're optimizing for), scraping the YouTube web front page (fragile, against ToS).
+
+- **Click param renamed `query` → `query_` internally.** The `query` CLI subcommand and the `--query` option both exist in the same module. Click would have bound the `query` kwarg to the function while the module-level `query` symbol still pointed at the subcommand — workable, but fragile and confusing. Trailing underscore on the parameter avoids the name shadow without changing the user-facing flag.
+
+- **No retry/backoff yet on YouTube 403 / quota.** Personal-scale (one search per scrape, ≤50 results) sits at <1% of the daily 10k quota. Adding backoff before hitting a real failure is speculation. Same call as the 429 decision on Reddit.
+
+- **README and `CLAUDE.md` stay separate.** Same project, different audiences. README is for someone landing on the GitHub repo from a blog post or a search result — needs setup commands, credentials table, what-it-does. `CLAUDE.md` is for a Claude Code session opening the project — needs decisions, sharp edges, model strategy. Cross-referencing them would couple the two and force every README change into a Claude-context update.
+
+- **Renamed `master` → `main` now, not later.** Repo is ~24h old with one external dependency (zero, actually — no one's linked to it yet). The cost of renaming after a blog post, a tweet, or a portfolio link goes out is meaningfully higher. Four-command migration: `git branch -m`, `git push -u`, `gh repo edit --default-branch`, `git push --delete`. GitHub keeps redirects on the old refs indefinitely.
+
+### What's intentionally not built yet
+
+- TikTok / Apify scraper — Phase 1 close-out, Day 5–7.
+- YouTube `pageToken` pagination — current call caps at 50 results per scrape. Add when 50 isn't enough.
+- Quota / rate-limit handling — see decision above.
+- The analyzer (Phase 2, Week 3).
+
+### Blockers for next session
+
+- **YouTube live verification needs `YOUTUBE_API_KEY`.** Google Cloud Console → create project → enable YouTube Data API v3 → Credentials → Create Credentials → API key → paste into `.env`. ~5 min.
+- Optional: Apify account if user wants to start TikTok scraping.
+
+### Hooks for the post
+
+Pick one. Not all.
+
+- **"YouTube's API needs two calls to tell you what trended"** — `search.list` + `videos.list`, why the API design forces this split, and the 100+1 quota cost. Specific technical lesson, useful to anyone building media analytics.
+- **"Why my Click parameter is named `query_`"** — two-paragraph mini-post on a name collision between a CLI subcommand and one of its options. Concrete, fixable, easy to understand.
+- **"Renaming `master` → `main` on a four-day-old repo"** — quick-win post. Four commands, why now is cheaper than later, the gh-not-on-PATH gotcha.
+- **"README is for humans; `CLAUDE.md` is for Claude"** — meta post on splitting public-facing docs from AI-context docs in a project that's actively used by Claude Code. Niche but interesting to anyone running AI-assisted dev workflows.
+
+---
+
 ## 2026-04-24 — Day 3: Reddit pivot — PRAW out, public JSON in
 
 ### What got built
