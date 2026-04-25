@@ -11,6 +11,73 @@ Raw build notes for the content-engine project, structured for a devlog-generati
 
 ---
 
+## 2026-04-25 — Content planning: 10 DMS clips + audit
+
+> Non-numbered entry. Content-strategy session, not a code day. Follow-up to Day 5's pivot — `caption draft` is still stubbed, but you can't build the captioner without first knowing what you're captioning. This session generates the input.
+
+### What got built
+
+- **`docs/clips.md`** — working planning document for the first 10 short-form video clips under the MiggyDev faceless gamedev brand. Per-clip specs (audience, hook copy, body, caption shape, why-it-works, recording requirements), the full posting schedule (Mon / Wed / Fri × ~3.3 weeks), the Sunday batch capture session plan, and a cut-to-6 list for if reality eats four slots. Sourced from the per-entry "Hooks for the post" lists in the sibling DMS repo's `DEVLOG-NOTES.md`.
+- **Audience split:** 5 player-facing / 5 dev-facing. Ordered by hook strength (loadout reveal lands first; Phase 1 recap lands tenth) — strongest scroll-stopper at the top because "more from this account" surfaces clip 01 to anyone who finds 02–10 first.
+- **Mix targets met:** three broken-or-fixed framings (camera shake, whiff bug, icon iteration), one honestly-imperfect anchor (the still-open whiff question, slot 5), one Phase 1 recap (slot 10), two code-on-screen-as-primary slots (camera shake, empty packet) — at the cap, not over it.
+- **Cross-repo correction:** initially wrote `clips.md` and the planning entry into the DMS repo (proximity-of-reading bias — I was reading DMS source for the audit). Moved both to `content-engine` after recognizing the architectural mistake: clips work is content-engine's domain (it's the input for `clip add` / `caption draft` / `schedule`), not DMS's. DMS's `docs/` stays focused on game work; content-engine's `docs/` holds content-pipeline planning. File-on-disk handoff between repos preserved.
+
+### Audit findings (post-plan, same session)
+
+After locking the plan, audited each clip against the actual DMS source. Material findings — full per-clip detail in `docs/clips.md` Audit section:
+
+- **Clip 02 caption is backwards.** Spec said "kick gets eaten by the slow." Actual status priority is **Kick > Timeout > Mute > seek** (`EnemySpawner.server.lua:181-195` in DMS, CLAUDE.md confirms). Kick OVERRIDES Mute, not the inverse. Caption rewrite required before posting.
+- **Clip 02 coin payoff doesn't fire on Kick.** Coins only awarded in `banEnemy.OnServerEvent` (`EnemySpawner.server.lua:315`); Kick is non-destructive. If the chain ends on Kick, "+20 coins" floater never appears. Decision needed: end on Kick (no payoff) or on Ban (real popup).
+- **Clip 03 has no "before" version in repo.** `git log --follow` on DMS's `BanHammerScript.client.lua` shows it already used `Humanoid.CameraOffset` from the initial Days 1-7 commit. The CFrame-tween version was never committed — has to be **written from scratch** on a throwaway branch, not restored.
+- **Clip 08 premise is structurally false.** DMS code sends `kickEnemies:FireServer(lookDir)` (Vector3 payload, not empty) and server reads the client's vector (not its own). Commit `a419aca` documents the switch from server-derived to client-derived as the intentional exception to server-authoritative. The whole "empty packet, server-derived geometry" hook is the inverse of reality. Recommend deferring to week 4+ for a deliberate reconception.
+- **Clips 04 & 07 oversell their visuals.** Both spec a "screen flash"; actual behavior is just a label color change in the existing HealthLabel/WaveLabel slots. No full-screen overlay exists in DMS. Decision: accept smaller visuals or add a 20-min `FlashOverlay` Frame in DMS that does double duty.
+- **Clip 10 caption claim ("~350 lines of Luau") needs verification** post Days 9-11. Tally with `wc -l src/**/*.lua` in DMS, or drop the clip entirely (recommended — push to week 4+ as a Phase 2 companion).
+- **Tool TextureIds are Studio-only state** in DMS, not in the repo. Confirm Sunday morning before recording — fresh place file would have blank icons.
+
+Hard blockers before camera rolls: reconceive Clip 08, rewrite Clip 02 caption, build a temp solo-spawn debug for Clip 02 isolation in DMS, verify Tool TextureIds in DMS Studio. Six items of polish below those, in priority order, in `docs/clips.md`.
+
+### Decisions made (and why)
+
+- **Clip planning lives in `content-engine`, not in `discord-mod-simulator`.** The clips ARE gameplay from DMS, but the *plan* is content-pipeline input — the same data shape the eventual `caption draft`, `schedule`, and `metrics` commands will operate on. Putting `clips.md` in DMS would couple the two repos via a working planning doc that gets edited weekly. Keeping it in content-engine respects the integration-points rule (file-on-disk handoffs between repos, no cross-project writes for unrelated work). DMS's `docs/` stays game-focused (`plan.md`, `state.md`); content-engine's `docs/` holds content-pipeline planning.
+
+- **Non-numbered DEVLOG entry, not "Day 6."** content-engine's day numbers track shipped code (Days 1–5: scaffold → DB → Reddit → YouTube → cross-poster pivot). Today is content-strategy work, not code. Same convention as DMS's content-planning entry handling: planning sessions get dated headers, not numbered ones, so the dev day count stays comparable.
+
+- **5 player / 5 dev split, not weighted toward dev.** Dev material is stronger right now — concrete bugs, decisions, code. Player material is weaker but matters more long-term for actual user growth. Forcing equal coverage prevents the trap of only making clips about what's already easy to capture, which would lock the brand into "tutorials for other devs" with no path to actual players.
+
+- **Loadout reveal is slot 01, not the Phase 1 recap.** A week-one account has no audience for a recap to compress for. The strongest scroll-stopper has to land first because algorithmic surfacing favors recent uploads, and "more from this account" pulls clip 01 forward when a stranger discovers any other clip in the rotation.
+
+- **The whiff bug clip is non-negotiable, mid-rotation (slot 5).** Faceless dev accounts that show only polished wins lose trust within the first ten clips. One "here's what's still broken" slot — not at the start (sets the wrong tone) and not at the end (looks like an apology) — buys credibility for everything that surrounds it.
+
+- **Captions stay platform-agnostic in `clips.md`.** The per-platform rewrite (TikTok hashtag count vs IG vs X length limits vs Shorts pinned-comment style) is the `caption draft` command's job — currently a stub but the next vertical slice. Drafting platform-specific captions here would force a rewrite when that command lands.
+
+- **The audit was the most-valuable hour of the session.** Two clips had wrong premises (one caption inverted, one entire clip false), one had a "before" version that never existed, two oversold their visuals — none of which would have been caught without reading DMS source against the spec. Lesson: a content plan written from devlog notes alone is a draft. Audit before recording, always.
+
+### What's intentionally not built yet
+
+- **The recording session itself.** Planned for Sunday, ~2 hours, all 10 clips' raw material captured in one batch in DMS. Detailed plan in `docs/clips.md`. Two clips need temporarily-restored or written-from-scratch code in DMS (camera-shake bad version, kick whiff with sound); budget ~30 min round-trip overhead.
+- **Editing pipeline.** Each clip needs an edit pass after capture — cyan/violet overlay text, MiggyDev corner mark, voiceover layered where applicable. Should happen on a separate day from recording.
+- **`caption draft` command.** Still stubbed (Day 5). The clip plan is the input it'll consume — building the captioner is the next vertical slice once Sunday's recording lands raw material.
+- **`metrics` group commands.** All stubbed. Not blocked by clip planning; sequenced after `caption draft` and `schedule`.
+
+### Blockers for next session
+
+- Sunday recording session needs ~2 uninterrupted hours and a quiet room for the three voiceover passes (whiff bug, victory, empty packet — ~30s combined audio).
+- Two captures require temporarily-restored or written-from-scratch code in DMS (camera-shake bad version on a throwaway branch; whiff-bug pre-fix Kick effect call). Plan: `git stash` after capture in DMS, restore working tree before next dev day there.
+- Re-evaluate `docs/clips.md` after recording. Splitter ban-spawning children (DMS Day 10) is genuinely strong clip material that the original 10-clip plan missed. Likely candidate to swap in for clip 09 (overlap with #04 as "tension" coverage), once a Sunday-recorded version of the original 10 exists for comparison.
+
+### Hooks for the post
+
+Pick one. Not all.
+
+- **"Planning content for a faceless brand with zero audience"** — the constraints (faceless, low-key from the employer, 15–30s clips), the hard problem (week-one means strangers not followers), and the framework (player/dev split, hook-strength as ordering criterion). The strongest meta hook on this list.
+- **"DEVLOG hooks are clip seeds"** — the workflow itself. The "Hooks for the post" section that the user's template forces at the bottom of every DEVLOG entry was already half-content; clipping it for video is one more transformation, and DEVLOG entries are the cheapest content-planning tool I have.
+- **"Why the whiff bug clip is non-negotiable"** — authenticity math in a polish-heavy feed. The argument for one "here's what's broken" slot in every ten-clip rotation, and why slot 5 specifically.
+- **"Choosing the loadout reveal over the recap as clip 01"** — content-strategy as a real engineering decision. The trade-off: a recap pays off only if the audience exists; a loadout reveal works on a stranger.
+- **"Auditing your own content plan against the actual code"** — the meta-narrative that the audit itself was the most-valuable hour of this session. Two clips had wrong premises, one had a "before" version that never existed, two oversold their visuals — none of which would have been caught without reading the source against the spec. The lesson: a content plan written from devlog notes alone is a draft. Audit before recording, always.
+- **"Where does the clip plan live? Not the game repo."** — the cross-repo correction. Putting `clips.md` in DMS coupled the two projects via a working doc; moving it to `content-engine` respects the integration-points rule (file-on-disk handoffs, each project owns its own concerns). Concrete example of refactoring an architectural mistake the day it happens.
+
+---
+
 ## 2026-04-25 — Day 5: pivot to cross-poster
 
 ### What got built
