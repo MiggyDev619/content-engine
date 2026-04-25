@@ -19,7 +19,11 @@ Raw build notes for the content-engine project, structured for a devlog-generati
 - **`main.py` updates** — `scrape` command got a `--query` flag and a wired YouTube branch alongside Reddit. `query` command rewired to call `db.database.get_posts` and print formatted `[score] title` + url lines.
 - **`README.md`** — public-facing setup + credentials table + usage examples + project-state checklist. Distinct from `CLAUDE.md` (internal context).
 - **`master` → `main` migration** — local rename, remote `main` pushed and default flipped on GitHub, remote `master` deleted. Repo is now `https://github.com/MiggyDev619/content-engine` (public) on `main`.
-- **Verified end-to-end** — `query --top 5 --source reddit` returned five real rows from yesterday's r/gamedev scrape. `scrape --source youtube` without `--query` errors cleanly. `scrape --source all` without flags skips both real sources gracefully. YouTube live-fetch deferred until `YOUTUBE_API_KEY` is set.
+- **Verified end-to-end** — `query --top 5 --source reddit` returned five real rows from yesterday's r/gamedev scrape. `scrape --source youtube` without `--query` errors cleanly. `scrape --source all` without flags skips both real sources gracefully.
+- **YouTube live-verified** — `YOUTUBE_API_KEY` set (Google Cloud project, key restricted to YouTube Data API v3 only). `scrape --source youtube --query "roblox game dev" --limit 25` landed 25 rows; rerun deduped to 0. DB now holds 25 reddit + 25 youtube.
+- **Two bugs surfaced and fixed during live verification:**
+  - `UnicodeEncodeError` on emoji titles. Windows' default cp1252 stdout codec couldn't encode characters like `😱` / `💀` / `😹` that YouTube titles routinely contain. Fix: `sys.stdout.reconfigure(encoding="utf-8", errors="replace")` at the top of `main.py`. One line, fixes everything downstream.
+  - HTML-entity-encoded titles from YouTube. `Exposing Roblox&#39;s Richest Player` instead of `Exposing Roblox's Richest Player`. Fix: `html.unescape()` on `title` and `description` in `scrapers/youtube.py`. Cleared the 25 dirty youtube rows and re-scraped clean.
 
 ### Decisions made (and why)
 
@@ -42,8 +46,9 @@ Raw build notes for the content-engine project, structured for a devlog-generati
 
 ### Blockers for next session
 
-- **YouTube live verification needs `YOUTUBE_API_KEY`.** Google Cloud Console → create project → enable YouTube Data API v3 → Credentials → Create Credentials → API key → paste into `.env`. ~5 min.
-- Optional: Apify account if user wants to start TikTok scraping.
+- None on the code side. Phase 1 multi-source scrape is 2 of 3 done (Reddit + YouTube live).
+- Optional: Apify account if user wants to start TikTok scraping (Day 5–7 scope).
+- Open question: mixed-source `query` ranks YouTube views above Reddit upvotes on the same `likes` column — needs a per-source ranking or normalized score before it's useful for cross-platform analysis. Defer until the analyzer needs it.
 
 ### Hooks for the post
 
@@ -53,6 +58,7 @@ Pick one. Not all.
 - **"Why my Click parameter is named `query_`"** — two-paragraph mini-post on a name collision between a CLI subcommand and one of its options. Concrete, fixable, easy to understand.
 - **"Renaming `master` → `main` on a four-day-old repo"** — quick-win post. Four commands, why now is cheaper than later, the gh-not-on-PATH gotcha.
 - **"README is for humans; `CLAUDE.md` is for Claude"** — meta post on splitting public-facing docs from AI-context docs in a project that's actively used by Claude Code. Niche but interesting to anyone running AI-assisted dev workflows.
+- **"Two bugs you hit the second your data has emoji and apostrophes"** — Windows cp1252 stdout vs `😱`, and YouTube returning `&#39;` instead of `'`. Both one-line fixes, both surfaced within 30 seconds of running the first live scrape. Concrete, useful, evergreen.
 
 ---
 

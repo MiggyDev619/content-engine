@@ -1,4 +1,5 @@
 import os
+from html import unescape
 
 import httpx
 
@@ -52,8 +53,8 @@ def fetch_trending_videos(query: str, max_results: int = 25) -> list[dict]:
         posts.append({
             "source": "youtube",
             "external_id": vid,
-            "title": snippet.get("title", ""),
-            "description": snippet.get("description", ""),
+            "title": unescape(snippet.get("title", "")),
+            "description": unescape(snippet.get("description", "")),
             "url": f"https://www.youtube.com/watch?v={vid}",
             "author": snippet.get("channelTitle"),
             "likes": int(stats.get("likeCount", 0) or 0),
