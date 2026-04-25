@@ -11,6 +11,64 @@ Raw build notes for the content-engine project, structured for a devlog-generati
 
 ---
 
+## 2026-04-25 — Day 5: pivot to cross-poster
+
+### What got built
+
+- **Ripped 297 lines.** Old `scrapers/` (`reddit.py`, `youtube.py`), old `db/schema.sql` and `db/database.py` (`raw_posts` / `patterns` / `generated_content`), old `scrape` / `analyze` / `generate` / `query` commands in `main.py`. Removed `apscheduler` and `tweepy` from venv + `requirements.txt`. Stripped `REDDIT_USER_AGENT` and `APIFY_API_TOKEN` from `.env` and `.env.example`.
+- **Archived, didn't delete:** `content.db` → `content.pre-pivot.db` (gitignored via `*.db`). 50 rows of real Reddit + YouTube data preserved as evidence the old pipeline worked end-to-end.
+- **New schema, four tables.** `clips` (UNIQUE `file_path`), `captions` (no UNIQUE — multiple drafts per platform is the feature; token-tracking columns), `schedules` (UNIQUE `(clip_id, platform, scheduled_for)` + `CHECK (status IN ('queued', 'posted', 'failed'))`), `metrics` (no UNIQUE — time-series snapshots).
+- **New `db/database.py`.** `init_db()`, `add_clip()` wired; `get_clip` / `add_caption` / `add_schedule` / `record_metric` / `list_schedules` raise `NotImplementedError` until their command lands.
+- **New CLI: 7 commands across 5 groups.** `clip add` wired end-to-end. `caption draft`, `schedule`, `queue`, `metrics pull`, `metrics record`, `metrics show` are stubs that echo `(not implemented)`. `schedule` requires `--caption-id`. `metrics record` accepts `--at` for Sunday-batch backfill (defaults to now).
+- **Three atomic commits**: `065564c` (rip), `2ea6314` (schema + DB), `4eb8693` (CLI + clip add). Smoke test passed: `clip add <test.mp4>` lands a row, re-register raises `ClickException`.
+- **Docs rewritten** (this commit): `ROADMAP.md`, `CLAUDE.md`, `README.md` all replaced. DEVLOG-NOTES gets this Day 5 entry. Old docs described the dead pipeline — leaving them stale would have lied to the next Claude Code session.
+
+### Decisions made (and why)
+
+- **Pivot, not iterate.** The 6-week scrape → cluster → generate plan was solving the wrong problem for a faceless gamedev account. Algorithms suppress AI-generated text drafts; the actual bottleneck is "I don't have gameplay clips yet," not "I don't have ideas." Building a more sophisticated text-generation pipeline on top of that mistake would have compounded it. Rejected: keeping the old pipeline as "optional, in case I want it later" — two code paths means double the maintenance and ambient confusion.
+
+- **Three commits, not one mega-commit.** A single "pivot to cross-poster" commit would have been honest but unrevertible at the slice level. Three atomic commits (rip / schema / CLI) means I can roll back any one independently. Same vertical-slice discipline as the scraper days.
+
+- **Archive `content.db`, don't delete.** 50 real rows is evidence the old pipeline actually worked — useful for the "pivot" devlog post. Gitignored, costs nothing locally to keep.
+
+- **`--caption-id` required on `schedule`, no implicit "latest".** Implicit "latest" bites at 11pm when three captions exist and the wrong one ships. Slightly worse typing for safety enforced at the CLI boundary instead of at the level of memory. Same energy as `INSERT OR IGNORE` over fetch-check-insert.
+
+- **`CHECK (status IN ('queued', 'posted', 'failed'))` on `schedules`.** Schema-level constraint over Python flow control. Stops a typo'd `'posted '` (trailing space) from silently breaking `queue` filters two weeks from now.
+
+- **Stubs raise `NotImplementedError`, not silent stub return.** Documents the eventual interface and forces a loud failure if a future command calls them too early.
+
+- **Manual entry for TikTok / Instagram / X metrics is the design, not a temporary state.** TikTok has no public personal-account analytics API. Instagram needs Business + Meta Graph. X requires the $100/mo Basic tier. `metrics pull` docstring and `CLAUDE.md` sharp-edges section both spell this out so future-me doesn't burn a session trying to "fix" the autopull gap.
+
+- **`--at` flag on `metrics record` defaults to now.** Five-minute add saves real friction — Sunday batch backfill is the realistic workflow, not entering snapshots at the moment you check each platform.
+
+- **Aspect-ratio info is a printed checklist, not a schema column.** The MP4 has the ratio baked in when recorded; what's actually needed is a per-platform reminder ("TikTok: 9:16, ≤60s") at `schedule` time. Constant in code, not data.
+
+- **Docs written *with* the code, not after.** Stale docs lie to the next Claude Code session and to a fresh hand-off. Rewriting `ROADMAP.md`, `CLAUDE.md`, `README.md` now (Commit D) is the same discipline as committing the smoke test alongside the feature.
+
+### What's intentionally not built yet
+
+- All commands except `clip add` — each is a future vertical slice. Next: `caption draft`.
+- **Thumbnails** — struck from the goals list, not deferred. Different scope, image-gen cost is nontrivial, and Shorts/Reels autoplay in feed (custom thumbs rarely move the needle).
+- `ffprobe` auto-detect for clip duration — manual `--duration` flag is fine for personal scale.
+- Buffer / Publer / cross-posting service integration — defer until manual upload friction is real.
+- TikTok / Instagram / X auto-pull metrics — design constraint (above), not a TODO.
+
+### Blockers for next session
+
+- `ANTHROPIC_API_KEY` in `.env` (currently empty) before `caption draft` can do anything live.
+- Open prompt-design question: per-platform hook style varies a lot (TikTok ≠ Twitter). Resolve when we sketch the caption prompt.
+
+### Hooks for the post
+
+Pick one. Not all.
+
+- **"The moment I realized I was building a content factory, not a tool"** — meta-narrative on the pivot. The bottleneck framing, the realization, the deletion. By far the strongest hook on this list — pivot stories perform well, and "I deleted 297 lines because the premise was wrong" is the kind of post other indie devs share.
+- **"Ripping 297 lines is a feature"** — short, pointed post on the value of deletion when discovery beats continued investment. Useful for anyone afraid of throwing away work.
+- **"The bottleneck wasn't ideas, it was clips"** — diagnostic post on solo creator economics. Why faceless accounts grow from gameplay clips, not AI-generated text drafts, and what changed in my plan when I named the actual constraint.
+- **"Pipelines that automate the wrong thing"** — broader essay-flavored post on tool design. Why automating a non-bottleneck makes the bottleneck worse.
+
+---
+
 ## 2026-04-25 — Day 4: YouTube scraper, query command, README, master→main
 
 ### What got built

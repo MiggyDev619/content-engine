@@ -1,8 +1,10 @@
 # content-engine
 
-AI content distribution + trend analysis engine. Scrapes Reddit and YouTube for trending content in the game-dev / Roblox niche, uses Claude to extract reusable patterns, and generates platform-specific drafts (TikTok scripts, YouTube Shorts, Twitter threads, Instagram captions).
+Cross-post short-form video content (TikTok, YouTube Shorts, Twitter/X, Instagram Reels), schedule posts, draft captions/hooks via Claude, and aggregate per-platform analytics into one CLI view.
 
-Personal-use CLI. SQLite for storage. No infra.
+Solo-dev tool. Personal use. CLI-first. SQLite for storage. No infrastructure.
+
+> This project pivoted from a content-scraping pipeline on Day 5 — the old direction was solving the wrong problem (the bottleneck is recording clips, not generating ideas). See `DEVLOG-NOTES.md` for the full story.
 
 ## Setup
 
@@ -13,7 +15,7 @@ python -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 copy .env.example .env
-# fill in keys you need (see below)
+# fill in keys you actually need (see "Credentials" — most aren't required for MVP)
 ```
 
 ## Credentials
@@ -22,33 +24,39 @@ All keys live in `.env` (gitignored). `.env.example` is the template.
 
 | Key | Required for | How to get |
 |---|---|---|
-| `REDDIT_USER_AGENT` | Reddit scraping | No OAuth — public JSON. Set to `<app>/<version> by u/<your-reddit-username>`. Reddit blocks default httpx UAs. |
-| `YOUTUBE_API_KEY` | YouTube scraping | Google Cloud Console → enable YouTube Data API v3 → create API key. Free quota: 10k units/day. |
-| `ANTHROPIC_API_KEY` | Pattern analysis + content generation | console.anthropic.com → API Keys. Not needed until Week 3. |
-| `APIFY_API_TOKEN` | TikTok scraping (deferred) | apify.com — managed actor, ~$5/mo. |
-| `TWITTER_*` | Auto-posting (deferred) | developer.twitter.com Basic tier. Not needed until Week 5. |
+| `ANTHROPIC_API_KEY` | `caption draft` | console.anthropic.com → API Keys |
+| `YOUTUBE_API_KEY` | `metrics pull` for YouTube Shorts | Google Cloud Console → enable YouTube Data API v3 |
+| `TWITTER_*` | Auto-post + analytics for X | Deferred (Basic tier $100/mo) — leave blank for MVP |
 
 ## Usage
 
 ```powershell
-# Scrape trending posts from a subreddit
-python main.py scrape --source reddit --subreddit gamedev --limit 25
+# Register a recorded clip
+python main.py clip add "E:\clips\dms-loadout.mp4" --title "Loadout reveal" --duration 23
 
-# Scrape trending YouTube videos for a query
-python main.py scrape --source youtube --query "roblox game dev" --limit 25
+# Draft per-platform captions for a clip via Claude  (Phase 1, in progress)
+python main.py caption draft 1 --platform all
 
-# Query the DB — top posts by likes, optionally filtered by source
-python main.py query --top 10
-python main.py query --top 10 --source reddit
+# Schedule a clip+caption for a specific platform and time
+python main.py schedule 1 --caption-id 4 --platform tiktok --datetime "2026-04-28 18:00"
+
+# See what's queued this week
+python main.py queue
+
+# Pull analytics — YouTube auto; manual entry for everything else
+python main.py metrics pull
+python main.py metrics record 7 --views 12000 --likes 340 --at "2026-04-30 09:00"
+python main.py metrics show --days 7
 ```
 
-Re-running the same `scrape` is idempotent — `INSERT OR IGNORE` on the `UNIQUE(source, external_id)` constraint silently dedups.
+Why manual entry for TikTok / Instagram / X: TikTok has no public personal-account analytics API; Instagram needs a Business account + Meta Graph; X requires the Basic API tier ($100/mo). Manual snapshot entry is the design, not a workaround.
 
 ## Project state
 
-- **Phase 1 — multi-source scrape:** Reddit ✅ live · YouTube ✅ live · TikTok deferred (Apify)
-- **Phase 2 — pattern analysis (Claude):** not started
-- **Phase 3 — content generation:** not started
-- **Phase 4 — automation + scheduling:** not started
+| Phase | Goal | Status |
+|---|---|---|
+| Phase 1 | Cross-poster MVP — `clip` + `caption` + `schedule` + `queue` | `clip add` shipped; rest in progress |
+| Phase 2 | Analytics — `metrics pull` (YouTube auto) + `record` (manual) + `show` | queued |
+| Phase 3 | Quality of life — `ffprobe`, Buffer integration if needed | optional |
 
-See `ROADMAP.md` for the full 6-week plan and `DEVLOG-NOTES.md` for a session-by-session log of what was built and why.
+See `ROADMAP.md` for the phase breakdown and `DEVLOG-NOTES.md` for session-by-session build notes.

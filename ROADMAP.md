@@ -1,206 +1,62 @@
-# AI Content Distribution + Trend Analysis Engine
-### Execution-Ready Engineering Plan
+# content-engine — roadmap
 
----
+A solo-dev tool for cross-posting short-form video content (TikTok, YouTube Shorts, Twitter/X, Instagram Reels), scheduling posts, drafting captions/hooks via Claude, and aggregating per-platform analytics into one CLI view.
 
-## Honest Framing Before You Start
+Personal use, single user, CLI-first. SQLite for storage. No infrastructure, no deployment.
 
-A few unrealistic ideas to kill now:
+> The original 6-week plan was a scrape→cluster→generate text-content pipeline. That solved the wrong problem — faceless creator accounts grow from gameplay clips, not AI-generated text drafts. The pivot landed on Day 5; full story in `DEVLOG-NOTES.md`.
 
-- **TikTok scraping is not reliably feasible.** Their anti-bot measures are aggressive and break constantly. Use Apify's managed TikTok scrapers (paid, ~$5/mo) or accept that TikTok is read-only via third-party tools. Do not build a custom TikTok scraper — it will eat weeks.
-- **Auto-posting to TikTok is not possible.** No official API for personal accounts. YouTube and Twitter/X have APIs. Instagram requires a Business account + Meta API (annoying but doable). Design for this early.
-- **"AI-generated content" alone is not distribution.** This engine gets you raw material. You still have to post and iterate on what performs. Don't confuse automation with growth.
-- **This is a 6–8 week project to do well**, not 2 weeks. The plan below is honest about that.
+## Phases
 
----
+Weekly vertical slices, no fixed deadline. Each phase is "done when it's shippable."
 
-## 1. Phased Roadmap
+### Phase 1 — clip + caption + schedule MVP
 
-### Phase 1 — Scrape + Store (Weeks 1–2)
-**Goal:** Pipeline that pulls trending content and stores it in a queryable format.
+**Done when:** I can register a clip, draft per-platform captions for it, schedule it across platforms, and the `queue` command shows what's coming up.
 
-Build:
-- Reddit scraper via PRAW (official API, free, reliable)
-- YouTube scraper via YouTube Data API v3 (free quota: 10k units/day)
-- TikTok via Apify actor (managed, no maintenance)
-- SQLite database with raw posts table
-- CLI command: `python main.py scrape --source reddit --subreddit gamedev`
+- [x] `clip add <path>` — register a recorded clip in the DB *(shipped)*
+- [ ] `caption draft <clip-id> [--platform]` — Claude generates per-platform captions/hooks
+- [ ] `schedule <clip-id> --caption-id ... --platform ... --datetime ...` — record posting intent + print platform-specific upload checklist
+- [ ] `queue` — show this week's scheduled posts per platform
 
-Done when:
-- Running `scrape` command fills database with 50+ posts from 2+ sources
-- Data includes title, body/description, engagement metrics, timestamps
-- No manual steps required after initial auth setup
+### Phase 2 — analytics
 
----
+**Done when:** `metrics show` gives me a one-screen view of what's working, without opening four apps.
 
-### Phase 2 — Analyze + Extract Patterns (Week 3)
-**Goal:** Claude analyzes scraped content and extracts reusable patterns.
+- [ ] `metrics pull` — auto-fetch YouTube Shorts via YouTube Data API + OAuth
+- [ ] `metrics record <schedule-id> --views ... --at ...` — manual snapshot entry for TikTok / Instagram / X (no public APIs); `--at` defaults to now() so Sunday batch backfill is friction-free
+- [ ] `metrics show [--days N]` — single CLI table: clip | platform | views | likes | comments
 
-Build:
-- Batch analyzer that sends scraped posts to Claude API
-- Pattern extraction: hooks, formats, keywords, engagement signals
-- Patterns table in DB (linked to source posts)
-- CLI command: `python main.py analyze --limit 50`
+### Phase 3 — quality of life (only if specific friction shows up)
 
-Done when:
-- Running `analyze` on 50 posts returns structured pattern data
-- Output includes: top hooks used, content formats, high-engagement keywords
-- Results are stored and queryable
+- `ffprobe` auto-detect for `--duration` (manual flag is fine for now)
+- Buffer / Publer / cross-posting service integration (only if manual upload becomes a real bottleneck)
+- YouTube Shorts auto-post via OAuth (when YouTube allows it for non-partner accounts)
+- Apify TikTok analytics (only if growth depends on TikTok signal and $5–30/mo is acceptable)
 
----
+## What NOT to build
 
-### Phase 3 — Generate + Format (Week 4)
-**Goal:** Claude generates platform-specific content drafts from extracted patterns.
+- **Thumbnails / image generation.** Shorts and Reels autoplay from feed; custom thumbnails rarely move the needle. Image-gen is different scope, different model, nontrivial cost. Struck from the goals list, not deferred.
+- **TikTok auto-post.** No public API for personal accounts.
+- **TikTok / Instagram / X analytics auto-pull.** Personal-account analytics aren't available without Business accounts (Meta) or paid tiers (X). `metrics record` is the design, not a workaround. Future-me: don't waste a session trying to "fix" this.
+- **Web dashboard / multi-user / Postgres / Docker / Redis.** Single user, CLI is faster, SQLite scales to 100k+ rows for this use case.
+- **ML engagement prediction.** No labeled data, and the bottleneck is recording, not ranking.
+- **Custom video editing.** Out of scope. The user records elsewhere; this tool starts at "I have a finished MP4."
+- **The old scrape → cluster → generate pipeline.** Pivoted away from this on Day 5. See `DEVLOG-NOTES.md`.
 
-Build:
-- Content generator that uses patterns as input
-- Platform formatters: TikTok script, YouTube Shorts script, Twitter/X thread, Instagram caption
-- Generated content table in DB
-- CLI command: `python main.py generate --topic "Roblox game dev" --platform all`
+## Stack
 
-Done when:
-- Single command produces 4 platform-ready drafts
-- Output is saved to DB and exported as text files
-- Quality is good enough to post with minor edits
+- Python 3.13, Click CLI, stdlib `sqlite3`
+- Anthropic SDK (`claude-opus-4-7` for hooks, `claude-sonnet-4-6` for per-platform reformat)
+- `httpx` for YouTube Data API analytics
+- `python-dotenv` for `.env`-loaded credentials
 
----
+## Status
 
-### Phase 4 — Automate + Schedule (Weeks 5–6)
-**Goal:** End-to-end pipeline that runs on a schedule and optionally posts.
-
-Build:
-- Cron-triggered pipeline: scrape → analyze → generate → export
-- Twitter/X auto-post via API
-- YouTube Shorts metadata generator (title, description, tags)
-- Simple digest: daily email or Slack message with generated drafts
-- CLI command: `python main.py run --schedule daily`
-
-Done when:
-- Pipeline runs unattended and produces daily content drafts
-- At least one platform (Twitter/X) can auto-post
-- You're reviewing output, not building
-
----
-
-## 2. Weekly Execution Plan
-
-### Week 1 — Project Setup + Reddit Scraper
-- Day 1–2: Project scaffold, virtualenv, SQLite schema, PRAW setup
-- Day 3–4: Reddit scraper working, raw posts saving to DB
-- Day 5–7: YouTube Data API v3 scraper, Apify TikTok actor integration
-
-**Output:** `scrape` CLI command pulling from 3 sources
-
----
-
-### Week 2 — Data Cleaning + Storage Layer
-- Day 1–2: Normalize scraped data into consistent schema across sources
-- Day 3–4: Deduplication, filtering (remove low-engagement posts)
-- Day 5–7: CLI query tool (`python main.py query --top 20 --source reddit`)
-
-**Output:** Clean, queryable dataset of trending content
-
----
-
-### Week 3 — Claude Analyzer
-- Day 1–2: Claude API integration, batch prompt design
-- Day 3–4: Pattern extraction working, patterns table populated
-- Day 5–7: Keyword frequency analysis, hook library built from real data
-
-**Output:** `analyze` command producing structured pattern data
-
----
-
-### Week 4 — Content Generator + Platform Formatters
-- Day 1–2: Generator prompt design, base content generation working
-- Day 3–4: Per-platform formatters (TikTok, YouTube, Twitter, Instagram)
-- Day 5–7: File export, review workflow, quality testing on real posts
-
-**Output:** `generate` command producing 4 platform drafts per topic
-
----
-
-### Week 5 — Pipeline + Scheduling
-- Day 1–2: Chain scrape → analyze → generate into single pipeline command
-- Day 3–4: APScheduler for daily runs, logging
-- Day 5–7: Twitter/X API auto-post, daily digest via email (SMTP)
-
-**Output:** Unattended daily pipeline
-
----
-
-### Week 6 — Tuning + Personal Use Optimization
-- Day 1–2: Fine-tune prompts based on actual generated content quality
-- Day 3–4: Add game dev / Roblox-specific context to generators
-- Day 5–7: Refactor anything messy, write a basic README
-
-**Output:** System you'd actually use daily
-
----
-
-## 3. Directory Structure
-
-```
-content-engine/
-├── main.py                  ← CLI entry point (Click)
-├── .env                     ← API keys (never commit)
-├── requirements.txt
-├── content.db               ← SQLite database
-│
-├── scrapers/
-│   ├── reddit.py            ← PRAW wrapper
-│   ├── youtube.py           ← YouTube Data API v3
-│   └── tiktok.py            ← Apify REST client
-│
-├── analyzer/
-│   ├── batch.py             ← sends posts to Claude in batches
-│   └── patterns.py          ← pattern extraction + storage
-│
-├── generator/
-│   ├── generate.py          ← calls Claude with patterns as context
-│   └── prompts.py           ← all prompt templates live here
-│
-├── formatter/
-│   ├── tiktok.py
-│   ├── youtube.py
-│   ├── twitter.py
-│   └── instagram.py
-│
-├── poster/
-│   ├── twitter.py           ← Tweepy wrapper (auto-post)
-│   └── queue.py             ← post queue for manual review
-│
-├── db/
-│   ├── schema.sql
-│   └── database.py          ← query helpers
-│
-└── pipeline.py              ← chains scrape → analyze → generate
-```
-
----
-
-## 4. Milestones
-
-| Milestone | Target | Signal |
+| Phase | Slice | Status |
 |---|---|---|
-| First data in DB | End of Day 3 | `SELECT COUNT(*) FROM raw_posts` returns 50+ |
-| Multi-source scrape | End of Week 1 | Reddit + YouTube both filling DB |
-| First pattern extracted | End of Week 3, Day 2 | `patterns` table has one row with real JSON |
-| First generated post | End of Week 4, Day 2 | Claude returns a TikTok script worth posting |
-| Full platform output | End of Week 4 | One topic → 4 platform drafts in under 60s |
-| First automated pipeline | End of Week 5, Day 2 | `python main.py run` completes end-to-end |
-| First auto-posted tweet | End of Week 5 | Tweet appears without manual posting |
-| Daily unattended run | End of Week 6 | Cron runs at 8am, you review over coffee |
-
----
-
-## 5. What NOT to Build Yet
-
-- Web dashboard / frontend — CLI is faster
-- Multi-user support — not a SaaS yet
-- Custom TikTok scraper — use Apify
-- TikTok auto-posting — no public API
-- Vector embeddings / semantic search — overkill
-- ML engagement prediction — not enough labeled data
-- Postgres migration — SQLite handles this
-- Content approval UI — review exported files manually
+| Phase 1 | `clip add` | ✅ shipped (commits `065564c` → `4eb8693`) |
+| Phase 1 | `caption draft` | next |
+| Phase 1 | `schedule` + `queue` | queued |
+| Phase 2 | `metrics pull` / `record` / `show` | queued |
+| Phase 3 | Quality of life | optional |
