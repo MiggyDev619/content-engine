@@ -11,6 +11,53 @@ Raw build notes for the content-engine project, structured for a devlog-generati
 
 ---
 
+## 2026-04-24 — Day 3: Reddit pivot — PRAW out, public JSON in
+
+### What got built
+
+- **`scrapers/reddit.py` rewritten** — PRAW + OAuth replaced with `httpx.get` against `https://www.reddit.com/r/<subreddit>/top.json`. Function signature, return shape, and caller untouched.
+- **Removed `praw` / `prawcore` / `update_checker`** from venv; re-pinned `requirements.txt`. Net change: one fewer dependency cluster.
+- **`.env` and `.env.example` cleaned** — dropped `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET`. `REDDIT_USER_AGENT` now flagged in comments as load-bearing.
+- **`REDDIT_USER_AGENT` set** to `content-engine/0.1 by u/miggydev`.
+- **Live-verified end-to-end** — `python main.py scrape --source reddit --subreddit gamedev --limit 25` landed 25 rows in `content.db`. Re-run inserted 0 new rows — dedup confirmed against the `UNIQUE(source, external_id)` constraint with real Reddit data, not just import tests.
+- **Cross-platform handle inventory** — verified `miggydev` is available on YouTube, TikTok, Apify; taken on Reddit (the user's own); status on GitHub, X, Instagram pending or indeterminate. Saved to user-handle memory so future sessions don't re-check.
+
+### Decisions made (and why)
+
+- **Bypassed Reddit's auth flow entirely.** Reddit's Responsible Builder Policy gates self-serve script app creation behind a developer profile + scope review. For a personal-scale project (≤100 reqs/day across a few subs), going through that pipeline is days-to-weeks for uncertain approval. Public JSON endpoints serve our exact need — read-only public subreddit data — and require no OAuth dance. Rejected: applying for Responsible Builder approval (slow, may be denied), pivoting to YouTube-first (loses Reddit's niche signal entirely).
+
+- **User-Agent is load-bearing now, not cosmetic.** Reddit blocks default `python-httpx/X.Y.Z` UAs within seconds. The new `REDDIT_USER_AGENT` value (`content-engine/0.1 by u/miggydev`) is the actual auth substitute. Documented in `.env.example` comments so a future setup doesn't strip it as boilerplate.
+
+- **Function signature stayed identical.** `fetch_top_posts(subreddit, limit, time_filter) -> list[dict]` — same name, same args, same return shape. Caller in `main.py` and storage in `db/database.py` didn't change. Single-file pivot, zero blast radius. Rejected: introducing a `RedditClient` abstraction "to make swapping easier next time" — premature, and the swap was already easy.
+
+- **Removed PRAW outright; no fallback path.** Two implementations of the same function diverge subtly over time and double the maintenance. If the public JSON path breaks, we'll know within a day and pivot then.
+
+- **Standardized on `miggydev` across platforms.** Single canonical handle simplifies attribution, User-Agent strings, blog frontmatter `author`, and audience search. Variant fallbacks (`miggy-dev`, `miggydevhq`) reserved for platforms where `miggydev` is taken.
+
+### What's intentionally not built yet
+
+- 429 backoff / retry. 60 req/min unauth is plenty for daily personal scale. Add the day we actually hit a 429.
+- Pushshift / historical Reddit archive integration. Out of scope; never was on the roadmap.
+- YouTube scraper (Days 4–5).
+- TikTok / Apify (Days 5–7).
+- `query` command wire-up and README (Day 4).
+
+### Blockers for next session
+
+- None in code. The Phase 1 multi-source goal is one of three sources done.
+- Optional human-side: confirm whether `github.com/MiggyDev` (id 66369572) is the user's old account or a stranger's. Claim `miggydev` on YouTube / TikTok / Apify before squatters appear.
+
+### Hooks for the post
+
+Pick one. Not all.
+
+- **"Reddit closed the API door so I went through the window"** — the policy change, the workaround, the User-Agent gotcha, why public JSON is the right answer for personal-scale. By far the strongest hook: fresh news, real workaround, clear technical lesson, hits an audience hitting the same wall right now.
+- **"User-Agent is a load-bearing string"** — short technical post on a header most devs treat as cosmetic. Two paragraphs, one snippet.
+- **"Why I deleted PRAW after a 24-hour relationship"** — opinionated mini-post on dropping a dependency rather than maintaining two code paths "just in case."
+- **"Checking handle availability across six platforms with curl"** — meta post on what works (GitHub API, YouTube, Apify) and what doesn't (TikTok / X / Instagram SPA gating). Useful for anyone consolidating their online identity.
+
+---
+
 ## 2026-04-23 — Day 2: Reddit scraper + DB layer
 
 ### What got built

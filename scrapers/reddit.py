@@ -1,34 +1,38 @@
 import os
 
-import praw
+import httpx
 
-
-def _client() -> praw.Reddit:
-    return praw.Reddit(
-        client_id=os.environ["REDDIT_CLIENT_ID"],
-        client_secret=os.environ["REDDIT_CLIENT_SECRET"],
-        user_agent=os.environ.get("REDDIT_USER_AGENT", "content-engine"),
-    )
+REDDIT_BASE = "https://www.reddit.com"
 
 
 def fetch_top_posts(subreddit: str, limit: int = 25, time_filter: str = "day") -> list[dict]:
-    """Fetch top submissions from a subreddit.
+    """Fetch top submissions from a subreddit via Reddit's public JSON endpoint.
 
-    Returns dicts shaped to match the raw_posts schema. `time_filter` is one of
-    'hour', 'day', 'week', 'month', 'year', 'all'.
+    No OAuth — Reddit's Responsible Builder Policy gates self-serve script apps,
+    so we hit the public JSON endpoint and rely on a descriptive User-Agent.
+    `time_filter` is one of 'hour', 'day', 'week', 'month', 'year', 'all'.
     """
-    reddit = _client()
+    ua = os.environ.get("REDDIT_USER_AGENT", "content-engine/0.1")
+    url = f"{REDDIT_BASE}/r/{subreddit}/top.json"
+    params = {"t": time_filter, "limit": limit}
+    headers = {"User-Agent": ua}
+
+    resp = httpx.get(url, params=params, headers=headers, timeout=10.0)
+    resp.raise_for_status()
+    data = resp.json()
+
     posts: list[dict] = []
-    for s in reddit.subreddit(subreddit).top(time_filter=time_filter, limit=limit):
+    for child in data["data"]["children"]:
+        s = child["data"]
         posts.append({
             "source": "reddit",
-            "external_id": s.id,
-            "title": s.title,
-            "description": s.selftext or "",
-            "url": s.url,
-            "author": str(s.author) if s.author else None,
-            "likes": s.score,
-            "comments": s.num_comments,
+            "external_id": s["id"],
+            "title": s.get("title", ""),
+            "description": s.get("selftext", "") or "",
+            "url": s.get("url", ""),
+            "author": s.get("author"),
+            "likes": int(s.get("score", 0) or 0),
+            "comments": int(s.get("num_comments", 0) or 0),
             "views": 0,
             "shares": 0,
         })
