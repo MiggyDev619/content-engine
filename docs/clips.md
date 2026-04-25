@@ -16,7 +16,7 @@ Week-one content for the MiggyDev faceless gamedev brand. Ten 15–30s short-for
 - Faceless. Hands + screen + voiceover OR on-screen text only. Voice OK; face never.
 - 15–30 seconds. Sweet spot for TikTok / YouTube Shorts / Instagram Reels. Works on the most restrictive platform first.
 - One specific observation per clip. Not "look at my game" — a thing the viewer learns or laughs at in 20 seconds.
-- Cyan/violet HUD aesthetic carried into overlay text. MiggyDev mark in a corner of every clip.
+- Yellow-on-black HUD aesthetic carried into overlay text. MiggyDev mark in a corner of every clip. Precise palette and logo path in **Brand assets** below.
 - Captions stay platform-agnostic in this file. Per-platform rewrites (hashtag count, length, link rules) are the `content-engine` `caption draft` command's job.
 
 ## Mix targets (locked)
@@ -26,6 +26,24 @@ Week-one content for the MiggyDev faceless gamedev brand. Ten 15–30s short-for
 - ≥1 honestly-imperfect (whiff bug, slot 5).
 - ≥1 recap (Phase 1 in 5 days, slot 10).
 - ≤2 code-on-screen as the primary visual (camera shake, empty packet — at the cap).
+
+## Brand assets
+
+The MiggyDev brand palette and logo used in clip overlays. Single source of truth — references to "yellow-on-black" elsewhere in this file resolve here. Centralizing means a future rebrand is a one-section edit.
+
+| Token | Hex | Use |
+|---|---|---|
+| `yellow-400` | `#facc15` | Primary — overlay text, hooks, callouts |
+| `yellow-300` | `#fde047` | Softer highlight — subtle accents only, not body text |
+| `yellow-500` | `#eab308` | Darker yellow — gradients (`yellow-400 → yellow-500`) where a single yellow reads flat |
+| `zinc-950` | `#09090b` | Base background — overlay panels, lower-third bars |
+| `zinc-50` | `#fafafa` | Light text on dark — fallback when yellow would clash |
+| `red-warn` | `#ef4444` | Status only — error / fail / `SERVER DEAD` overlay (clip 04) |
+| `green-win` | `#22c55e` | Status only — success / `VICTORY` overlay (clip 07) |
+
+**Logo:** `E:\Content\DMS\Brand\miggydev-mark-200.png` — placed in a corner of every clip, consistent placement across all 10 in the rotation (recommend top-right or bottom-left; lock the choice on clip 01 and stick with it).
+
+**Aesthetic rule:** yellow-400 on zinc-950. Yellow text on black backgrounds for hooks and lower-thirds. Status reds and greens are reserved for fail/win overlays in clips 04 and 07 — don't bleed those colors into other clips' general styling.
 
 ## Posting schedule
 
@@ -49,7 +67,7 @@ Status legend: `Planned` → `Recorded` → `Edited` → `Posted`.
 ## Clip 01 — The loadout
 
 - **Audience:** Player
-- **Hook (first 2 seconds):** ON-SCREEN TEXT (cyan-on-violet, MiggyDev mark in corner): *"When your Discord gets raided."*
+- **Hook (first 2 seconds):** ON-SCREEN TEXT (yellow-on-black, MiggyDev mark in corner): *"When your Discord gets raided."*
 - **Body:** Four tool icons drop in one at a time over 4 seconds — Ban Hammer, Mute Gun, Timeout Card, Kick Boot. Each is followed by a 2-second clip of it firing in-game (red explosion / blue slow / yellow freeze / green knockback). Final frame: all four icons in the hotbar at actual 64×64 size with text *"Pick your main."*
 - **Caption shape:** "The full mod loadout. Which one do you actually need?" Hashtags: `#robloxdev #robloxgame #moderationsimulator`
 - **Why it'll work:** Brand-introduction clip without "follow my journey" filler. Stranger sees four tools in 25 seconds and knows what the account is about. The closing question invites a comment.
@@ -195,7 +213,7 @@ Use `git stash` after capture to keep the working tree clean for the next dev da
 Run through this for every clip individually. None of these are skippable.
 
 - [ ] Trim raw capture to ≤30s
-- [ ] Cyan/violet color treatment on overlay text
+- [ ] Yellow-on-black color treatment on overlay text (`yellow-400` `#facc15` on `zinc-950` `#09090b`)
 - [ ] MiggyDev mark in a corner (consistent placement across all 10)
 - [ ] Hook text in the first 2 seconds
 - [ ] Voiceover layered (clips 05, 07, 08 only)

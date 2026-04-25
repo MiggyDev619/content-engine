@@ -55,7 +55,7 @@ Hard blockers before camera rolls: reconceive Clip 08, rewrite Clip 02 caption, 
 ### What's intentionally not built yet
 
 - **The recording session itself.** Planned for Sunday, ~2 hours, all 10 clips' raw material captured in one batch in DMS. Detailed plan in `docs/clips.md`. Two clips need temporarily-restored or written-from-scratch code in DMS (camera-shake bad version, kick whiff with sound); budget ~30 min round-trip overhead.
-- **Editing pipeline.** Each clip needs an edit pass after capture — cyan/violet overlay text, MiggyDev corner mark, voiceover layered where applicable. Should happen on a separate day from recording.
+- **Editing pipeline.** Each clip needs an edit pass after capture — yellow-on-black overlay text (`yellow-400` `#facc15` on `zinc-950` `#09090b`), MiggyDev corner mark, voiceover layered where applicable. Should happen on a separate day from recording.
 - **`caption draft` command.** Still stubbed (Day 5). The clip plan is the input it'll consume — building the captioner is the next vertical slice once Sunday's recording lands raw material.
 - **`metrics` group commands.** All stubbed. Not blocked by clip planning; sequenced after `caption draft` and `schedule`.
 
